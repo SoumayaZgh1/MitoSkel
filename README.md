@@ -9,3 +9,4 @@ Skeletonization and Quantification: Extracts morphological features, including l
 Versatility: Tested on diverse cell lines and imaging methods.
 MitoSkel outperforms existing methods in segmentation accuracy and efficiency, making it an invaluable resource for studying mitochondrial dynamics, function, and related pathologies.
 
+https://drive.google.com/file/d/1u5bwou5aZcyDRuIV49ZZkuhFZB5nkN83/view?usp=sharing

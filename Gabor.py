@@ -144,9 +144,9 @@ def GAU_Net(input_shape=(256, 256, 3), use_gabor=True, use_attention=True, use_t
         b = double_conv_block(e4, 512)
     
     # Decoder
-    d1 = upsampling_block(b, e3, 256, use_attention=use_attention)
-    d2 = upsampling_block(d1, e2, 128, use_attention=use_attention)
-    d3 = upsampling_block(d2, e1, 64, use_attention=use_attention)
+    d1 = upsampling_block(b, e3, 256)
+    d2 = upsampling_block(d1, e2, 128)
+    d3 = upsampling_block(d2, e1, 64)
     
     # Output
     outputs = layers.Conv2D(1, (1, 1), activation='sigmoid')(d3)

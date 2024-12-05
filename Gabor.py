@@ -46,7 +46,7 @@ class GaborLayer(layers.Layer):
 
 class TAM(layers.Layer):
     def __init__(self, input_channels, gate_channels):
-        super(AttentionGate, self).__init__()
+        super(TAM, self).__init__()
         self.input_channels = input_channels
         self.gate_channels = gate_channels
         self.W_g = layers.Conv2D(gate_channels, (1, 1), padding='same')
@@ -98,16 +98,19 @@ class TransformerBlock(layers.Layer):
         })
         return config
 
+def double_conv_block(x, filters, use_gabor=False, use_attention=False, gate_input=None):
 
-def double_conv_block(x, filters, use_gabor=False):
     if use_gabor:
         x = GaborLayer()(x)
     x = layers.Conv2D(filters, (3, 3), activation='relu', padding='same')(x)
     x = layers.BatchNormalization()(x)
     x = layers.Conv2D(filters, (3, 3), activation='relu', padding='same')(x)
     x = layers.BatchNormalization()(x)
-    return x
 
+    # Apply TAM attention if enabled
+    if use_attention and gate_input is not None:
+        x = TAM(input_channels=x.shape[-1], gate_channels=gate_input.shape[-1])(x, gate_input)
+    return x
 
 def upsampling_block(x, skip, filters, use_attention=True):
     x = layers.UpSampling2D((2, 2))(x)
@@ -117,27 +120,33 @@ def upsampling_block(x, skip, filters, use_attention=True):
     return double_conv_block(x, filters)
 
 def GAU_Net(input_shape=(256, 256, 3), use_gabor=True, use_attention=True, use_transformer=False):
+    """
+    Gabor Attention U-Net (GAU-Net) with configurable components.
+    """
     inputs = layers.Input(shape=input_shape)
     
     # Encoder
     e1 = double_conv_block(inputs, 64, use_gabor=use_gabor)
     p1 = layers.MaxPooling2D((2, 2))(e1)
-    e2 = double_conv_block(p1, 128)
-    p2 = layers.MaxPooling2D((2, 2))(e2)
-    e3 = double_conv_block(p2, 256)
-    p3 = layers.MaxPooling2D((2, 2))(e3)
-    e4 = double_conv_block(p3, 512)
     
-    # Bottleneck + Transformer
+    e2 = double_conv_block(p1, 128, use_attention=use_attention, gate_input=e1)
+    p2 = layers.MaxPooling2D((2, 2))(e2)
+    
+    e3 = double_conv_block(p2, 256, use_attention=use_attention, gate_input=e2)
+    p3 = layers.MaxPooling2D((2, 2))(e3)
+    
+    e4 = double_conv_block(p3, 512, use_attention=use_attention, gate_input=e3)
+    
+    # Bottleneck with optional Transformer
     if use_transformer:
-        b = TransformerBlock(512, num_heads=8, ff_dim=2048)(e4)
+        b = TransformerBlock(embed_dim=512, num_heads=8, ff_dim=2048)(e4)
     else:
         b = double_conv_block(e4, 512)
     
     # Decoder
-    d1 = upsampling_block(b, e3, 256, use_attention)
-    d2 = upsampling_block(d1, e2, 128, use_attention)
-    d3 = upsampling_block(d2, e1, 64, use_attention)
+    d1 = upsampling_block(b, e3, 256, use_attention=use_attention)
+    d2 = upsampling_block(d1, e2, 128, use_attention=use_attention)
+    d3 = upsampling_block(d2, e1, 64, use_attention=use_attention)
     
     # Output
     outputs = layers.Conv2D(1, (1, 1), activation='sigmoid')(d3)
